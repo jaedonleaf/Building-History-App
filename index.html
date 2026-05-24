@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f4ee">
+    <title>Building History App</title>
+    <link rel="stylesheet" href="./src/styles.css">
+    <script type="module" src="./src/app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Building History</p>
+          <h1>Map</h1>
+        </div>
+        <button class="icon-button" id="locateButton" type="button" aria-label="Use my location" title="Use my location">
+          <span aria-hidden="true">GPS</span>
+        </button>
+      </header>
+
+      <main class="workspace">
+        <section class="map-stage" aria-label="Map workspace">
+          <div id="map" class="map"></div>
+          <div id="fallbackMap" class="fallback-map" aria-hidden="true">
+            <div class="street street-a"></div>
+            <div class="street street-b"></div>
+            <div class="street street-c"></div>
+            <button class="map-pin pin-one" type="button" data-building-id="victoria-arcade" aria-label="Open Victoria Arcade">
+              <span></span>
+            </button>
+            <button class="map-pin pin-two" type="button" data-building-id="old-post-office" aria-label="Open Old Post Office">
+              <span></span>
+            </button>
+            <button class="map-pin pin-three" type="button" data-building-id="station-warehouse" aria-label="Open Station Warehouse">
+              <span></span>
+            </button>
+            <div class="you-are-here" aria-label="Approximate current position"></div>
+          </div>
+          <div class="search-panel" role="search">
+            <label for="searchInput">Search address or building</label>
+            <div class="search-row">
+              <input id="searchInput" type="search" placeholder="Search nearby buildings">
+              <button id="searchButton" type="button">Search</button>
+            </div>
+          </div>
+          <div class="map-status" id="mapStatus">Prototype map active. Add a Google Maps API key to enable live Google Maps.</div>
+        </section>
+
+        <aside class="detail-panel" aria-label="Building details">
+          <div class="detail-header">
+            <p class="eyebrow">Selected building</p>
+            <h2 id="buildingName">Victoria Arcade</h2>
+            <p id="buildingAddress">Market Street, Manchester</p>
+          </div>
+
+          <div class="fact-grid">
+            <div>
+              <span>Built</span>
+              <strong id="builtDate">c. 1898</strong>
+            </div>
+            <div>
+              <span>Confidence</span>
+              <strong id="confidence">Medium</strong>
+            </div>
+          </div>
+
+          <section>
+            <h3>History</h3>
+            <ol class="timeline" id="timeline"></ol>
+          </section>
+
+          <section>
+            <h3>Public sources</h3>
+            <ul class="source-list" id="sourceList"></ul>
+          </section>
+
+          <div class="actions">
+            <a id="googleMapsLink" href="https://www.google.com/maps" target="_blank" rel="noreferrer">Open in Google Maps</a>
+            <button id="reportButton" type="button">Flag missing record</button>
+          </div>
+        </aside>
+      </main>
+    </div>
+  </body>
+</html>
