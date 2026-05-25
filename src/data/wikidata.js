@@ -45,7 +45,8 @@ SELECT ?item ?itemLabel ?itemDescription
        (GROUP_CONCAT(DISTINCT ?useLabel; separator=", ") AS ?uses)
        (GROUP_CONCAT(DISTINCT ?heritageLabel; separator=", ") AS ?heritage)
        (GROUP_CONCAT(DISTINCT ?architectLabel; separator=", ") AS ?architects)
-       (GROUP_CONCAT(DISTINCT ?eventLabel; separator=", ") AS ?events)
+       (GROUP_CONCAT(DISTINCT ?eventTimeline; separator=";;") AS ?events)
+       (SAMPLE(?openingDate) AS ?openingDateSample)
        (SAMPLE(?article) AS ?articleSample)
 WHERE {
   SERVICE wikibase:box {
@@ -59,7 +60,8 @@ WHERE {
   OPTIONAL { ?item wdt:P366 ?use. }
   OPTIONAL { ?item wdt:P1435 ?heritage. }
   OPTIONAL { ?item wdt:P84 ?architect. }
-  OPTIONAL { ?item wdt:P793 ?event. }
+  OPTIONAL { ?item p:P793 ?eventStatement. ?eventStatement ps:P793 ?event. OPTIONAL { ?eventStatement pq:P585 ?eventDate. } }
+  OPTIONAL { ?item wdt:P1619 ?openingDate. }
   OPTIONAL { ?article schema:about ?item; schema:isPartOf <https://en.wikipedia.org/>. }
   SERVICE wikibase:label {
     bd:serviceParam wikibase:language "en".
@@ -71,6 +73,7 @@ WHERE {
     ?architect rdfs:label ?architectLabel.
     ?event rdfs:label ?eventLabel.
   }
+  BIND(IF(BOUND(?event), CONCAT(IF(BOUND(?eventDate), STR(YEAR(?eventDate)), ""), "|", ?eventLabel), "") AS ?eventTimeline)
 }
 GROUP BY ?item ?itemLabel ?itemDescription
 ORDER BY ?itemLabel
@@ -89,9 +92,10 @@ function mapBindingToBuilding(binding) {
   const instances = splitValues(binding.instances?.value);
   const heritage = splitValues(binding.heritage?.value);
   const architects = splitValues(binding.architects?.value);
-  const events = splitValues(binding.events?.value);
+  const events = parseTimelineValues(binding.events?.value, "Significant event");
   const description = cleanValue(binding.itemDescription?.value);
   const articleUrl = binding.articleSample?.value || "";
+  const openingDate = formatInception(binding.openingDateSample?.value);
 
   return {
     id: `wikidata-${itemUrl.split("/").pop()}`,
@@ -105,7 +109,16 @@ function mapBindingToBuilding(binding) {
       { name: "Wikidata record", url: itemUrl, coverage: "Structured public data and source references" },
       ...(articleUrl ? [{ name: "Wikipedia article", url: articleUrl, coverage: "Narrative public reference where available" }] : []),
     ],
-    timeline: buildTimeline({ built, uses, instances, heritage, architects, events, description }),
+    timeline: buildTimeline({
+      built,
+      openingDate,
+      uses,
+      instances,
+      heritage,
+      architects,
+      events,
+      description,
+    }),
   };
 }
 
@@ -124,7 +137,7 @@ function formatInception(value) {
   return Number.isFinite(year) ? `c. ${year}` : "Unknown";
 }
 
-function buildTimeline({ built, uses, instances, heritage, architects, events, description }) {
+function buildTimeline({ built, openingDate, uses, instances, heritage, architects, events, description }) {
   const timeline = [];
 
   timeline.push({
@@ -134,9 +147,18 @@ function buildTimeline({ built, uses, instances, heritage, architects, events, d
       : "Approximate build or inception date from structured public records.",
   });
 
+  if (openingDate !== "Unknown" && openingDate !== built) {
+    timeline.push({
+      period: openingDate,
+      description: "Recorded opening date from structured public records.",
+    });
+  }
+
+  timeline.push(...sortTimelineEntries(events));
+
   if (uses.length || instances.length) {
     timeline.push({
-      period: "Recorded use",
+      period: "Undated recorded use",
       description: [...uses, ...instances].slice(0, 5).join(", "),
     });
   }
@@ -155,12 +177,7 @@ function buildTimeline({ built, uses, instances, heritage, architects, events, d
     });
   }
 
-  if (events.length) {
-    timeline.push({
-      period: "Significant points",
-      description: events.slice(0, 5).join(", "),
-    });
-  } else if (description) {
+  if (description) {
     timeline.push({
       period: "Significant points",
       description,
@@ -168,6 +185,37 @@ function buildTimeline({ built, uses, instances, heritage, architects, events, d
   }
 
   return timeline;
+}
+
+function parseTimelineValues(value = "", fallbackLabel) {
+  return value
+    .split(";;")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const [start, end, label] = item.split("|").map((part) => cleanValue(part));
+      if (!label) return null;
+      return {
+        sortYear: Number(start || end) || 9999,
+        period: formatPeriod(start, end, fallbackLabel),
+        description: `${fallbackLabel}: ${label}`,
+      };
+    })
+    .filter(Boolean);
+}
+
+function formatPeriod(start, end, fallbackLabel) {
+  if (start && end) return `c. ${start}-${end}`;
+  if (start) return `from c. ${start}`;
+  if (end) return `until c. ${end}`;
+  return fallbackLabel;
+}
+
+function sortTimelineEntries(entries) {
+  return entries
+    .slice()
+    .sort((a, b) => a.sortYear - b.sortYear)
+    .map(({ sortYear, ...entry }) => entry);
 }
 
 function splitValues(value = "") {

@@ -1,4 +1,7 @@
-const OVERPASS_ENDPOINT = "https://overpass.kumi.systems/api/interpreter";
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
 const MAX_VIEWPORT_DEGREES = 0.08;
 
 const DATE_TAGS = ["start_date", "building:year", "year_built", "construction_date", "built"];
@@ -9,26 +12,35 @@ export async function fetchOpenStreetMapDatedBuildingsForBounds(bounds) {
   }
 
   const query = buildQuery(bounds);
-  const response = await fetch(OVERPASS_ENDPOINT, {
-    method: "POST",
-    headers: getRequestHeaders(),
-    body: new URLSearchParams({ data: query }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Overpass request failed with ${response.status}`);
-  }
-
-  const data = await response.json();
+  const data = await requestOverpass(query);
   return {
     buildings: data.elements.map(mapElementToBuilding).filter(Boolean),
     skipped: false,
   };
 }
 
+async function requestOverpass(query) {
+  const errors = [];
+
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const response = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`, {
+        headers: getRequestHeaders(),
+      });
+
+      if (response.ok) return response.json();
+      errors.push(`${endpoint}: ${response.status}`);
+    } catch (error) {
+      errors.push(`${endpoint}: ${error.message}`);
+    }
+  }
+
+  throw new Error(`Overpass request failed: ${errors.join("; ")}`);
+}
+
 function getRequestHeaders() {
   const headers = {
-    "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+    Accept: "application/json",
   };
 
   if (typeof process !== "undefined") {
@@ -58,8 +70,8 @@ function mapElementToBuilding(element) {
   if (!position || built === "Unknown") return null;
 
   const name = tags.name || tags["addr:housename"] || buildAddress(tags) || "Mapped building";
-  const use = getRecordedUse(tags);
   const osmUrl = `https://www.openstreetmap.org/${element.type}/${element.id}`;
+  const usageTimeline = buildUsageTimeline(tags, built);
 
   return {
     id: `osm-${element.type}-${element.id}`,
@@ -81,10 +93,7 @@ function mapElementToBuilding(element) {
         period: built,
         description: `Approximate construction/start date from OpenStreetMap tag ${getDateTagName(tags)}.`,
       },
-      {
-        period: "Recorded use",
-        description: use,
-      },
+      ...usageTimeline,
     ],
   };
 }
@@ -122,17 +131,66 @@ function getDateTagName(tags) {
   return DATE_TAGS.find((tag) => tags[tag]) || "date";
 }
 
-function getRecordedUse(tags) {
-  const values = [
+function buildUsageTimeline(tags, built) {
+  const currentUse = getCurrentUse(tags);
+  const formerUse = getFormerUse(tags);
+  const lifecycleUse = getLifecycleUse(tags);
+  const timeline = [];
+
+  if (formerUse.length) {
+    timeline.push({
+      period: "Former use",
+      description: formerUse.join(", "),
+    });
+  }
+
+  if (lifecycleUse.length) {
+    timeline.push({
+      period: "Lifecycle status",
+      description: lifecycleUse.join(", "),
+    });
+  }
+
+  if (currentUse.length) {
+    timeline.push({
+      period: built,
+      description: `Recorded or current mapped use: ${currentUse.join(", ")}`,
+    });
+  } else {
+    timeline.push({
+      period: "Recorded use",
+      description: "No additional use tag was available.",
+    });
+  }
+
+  return timeline;
+}
+
+function getCurrentUse(tags) {
+  return [
     tags.building && `building=${tags.building}`,
+    tags["building:use"] && `building use=${tags["building:use"]}`,
+    tags.use && `use=${tags.use}`,
     tags.amenity && `amenity=${tags.amenity}`,
     tags.shop && `shop=${tags.shop}`,
     tags.office && `office=${tags.office}`,
+    tags.tourism && `tourism=${tags.tourism}`,
+    tags.leisure && `leisure=${tags.leisure}`,
     tags.historic && `historic=${tags.historic}`,
     tags.heritage && `heritage=${tags.heritage}`,
   ].filter(Boolean);
+}
 
-  return values.length ? values.join(", ") : "No additional use tag was available.";
+function getFormerUse(tags) {
+  return Object.entries(tags)
+    .filter(([key]) => key.startsWith("former:") || key.startsWith("was:") || key === "old_name")
+    .map(([key, value]) => `${key}=${value}`);
+}
+
+function getLifecycleUse(tags) {
+  return Object.entries(tags)
+    .filter(([key]) => key.startsWith("disused:") || key.startsWith("abandoned:") || key.startsWith("demolished:") || key.startsWith("ruins:"))
+    .map(([key, value]) => `${key}=${value}`);
 }
 
 function buildAddress(tags) {

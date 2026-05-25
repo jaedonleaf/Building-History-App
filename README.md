@@ -64,3 +64,11 @@ Build date source priority:
 1. Wikidata `inception` (`P571`) for structured public records.
 2. OpenStreetMap dated building tags: `start_date`, `building:year`, `year_built`, `construction_date`, and `built`.
 3. Future adapters should add EPC construction age bands and official heritage/council record dates where available.
+
+Recorded usage timeline sources:
+
+- Wikidata contributes current/recorded use (`P366`), building type (`P31`), opening date (`P1619`), architect (`P84`), heritage status (`P1435`), and significant events (`P793`) with dates where qualifiers exist.
+- OpenStreetMap contributes current mapped use tags such as `building`, `building:use`, `amenity`, `shop`, `office`, `tourism`, `leisure`, `historic`, and `heritage`.
+- OpenStreetMap also contributes former/lifecycle clues such as `old_name`, `former:*`, `was:*`, `disused:*`, `abandoned:*`, `demolished:*`, and `ruins:*`.
+
+Many public sources do not provide exact start/end dates for every use. The app labels those entries as undated or approximate rather than inventing dates.
