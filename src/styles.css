@@ -20,6 +20,7 @@
 html,
 body {
   height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -34,13 +35,15 @@ input {
 }
 
 .app-shell {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .topbar {
-  min-height: 72px;
+  height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -103,15 +106,17 @@ h3 {
 }
 
 .workspace {
-  flex: 1;
   min-height: 0;
+  height: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
+  overflow: hidden;
 }
 
 .map-stage {
   position: relative;
-  min-height: calc(100vh - 72px);
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
   background: #dfe9dd;
 }
@@ -327,8 +332,10 @@ h3 {
 }
 
 .detail-panel {
-  min-height: calc(100vh - 72px);
+  min-height: 0;
+  height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 22px;
   border-left: 1px solid var(--line);
   background: var(--panel);
@@ -443,14 +450,17 @@ h3 {
 @media (max-width: 900px) {
   .workspace {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 56%) minmax(0, 44%);
   }
 
   .map-stage {
-    min-height: 58vh;
+    height: 100%;
+    min-height: 0;
   }
 
   .detail-panel {
-    min-height: auto;
+    height: 100%;
+    min-height: 0;
     border-top: 1px solid var(--line);
     border-left: 0;
   }
@@ -458,7 +468,7 @@ h3 {
 
 @media (max-width: 560px) {
   .topbar {
-    min-height: 64px;
+    height: 64px;
     padding: 10px 12px;
   }
 
@@ -467,7 +477,7 @@ h3 {
   }
 
   .map-stage {
-    min-height: 55vh;
+    min-height: 0;
   }
 
   .search-panel {
