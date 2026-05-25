@@ -1,5 +1,17 @@
 export const publicSources = [
   {
+    id: "wikidata",
+    name: "Wikidata",
+    coverage: "Structured open data for buildings, coordinates, dates, uses, heritage status, architects, and links",
+    url: "https://www.wikidata.org/",
+  },
+  {
+    id: "wikipedia",
+    name: "Wikipedia",
+    coverage: "Narrative public reference where a Wikidata item is linked to an article",
+    url: "https://www.wikipedia.org/",
+  },
+  {
     id: "historic-england",
     name: "Historic England List Entry Search",
     coverage: "Listed buildings, scheduled monuments, protected sites",

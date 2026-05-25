@@ -1,10 +1,13 @@
 import { buildings } from "./data/buildings.js";
 import { publicSources } from "./data/publicSources.js";
+import { fetchWikidataBuildingsForBounds } from "./data/wikidata.js";
 
 let localMapboxToken = "";
+let viewportLoadTimer = 0;
 
 const state = {
   selectedBuilding: buildings[0],
+  buildings: [...buildings],
   map: null,
   markers: [],
   userMarker: null,
@@ -44,6 +47,16 @@ function buildGoogleMapsUrl(building) {
   return `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
 
+function escapeHtml(value = "") {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;",
+  }[character]));
+}
+
 function renderBuilding(building) {
   state.selectedBuilding = building;
   elements.buildingName.textContent = building.name;
@@ -55,28 +68,39 @@ function renderBuilding(building) {
   elements.timeline.innerHTML = building.timeline
     .map((item) => `
       <li>
-        <time>${item.period}</time>
-        <p>${item.description}</p>
+        <time>${escapeHtml(item.period)}</time>
+        <p>${escapeHtml(item.description)}</p>
       </li>
     `)
     .join("");
 
-  elements.sourceList.innerHTML = building.sources
+  const registrySources = building.sources
     .map((sourceId) => {
       const source = publicSources.find((item) => item.id === sourceId);
       if (!source) return "";
       return `
         <li>
-          <a href="${source.url}" target="_blank" rel="noreferrer">${source.name}</a>
-          <span>${source.coverage}</span>
+          <a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.name)}</a>
+          <span>${escapeHtml(source.coverage)}</span>
         </li>
       `;
     })
     .join("");
+
+  const directSources = (building.sourceLinks || [])
+    .map((source) => `
+      <li>
+        <a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.name)}</a>
+        <span>${escapeHtml(source.coverage)}</span>
+      </li>
+    `)
+    .join("");
+
+  elements.sourceList.innerHTML = registrySources + directSources;
 }
 
 function selectById(id) {
-  const building = buildings.find((item) => item.id === id);
+  const building = state.buildings.find((item) => item.id === id);
   if (building) {
     renderBuilding(building);
     focusMap(building);
@@ -87,7 +111,7 @@ function runSearch() {
   const term = elements.searchInput.value.trim().toLowerCase();
   if (!term) return;
 
-  const match = buildings.find((building) => {
+  const match = state.buildings.find((building) => {
     return `${building.name} ${building.address}`.toLowerCase().includes(term);
   });
 
@@ -96,7 +120,7 @@ function runSearch() {
     focusMap(match);
     setStatus(`Showing ${match.name}.`);
   } else {
-    setStatus("No local prototype record matched. Live data adapters will handle wider searches.");
+    setStatus("No loaded record matched. Pan or zoom the map to load more UK public records.");
   }
 }
 
@@ -145,17 +169,20 @@ function initMapboxMap() {
       "top-right",
     );
 
-    state.markers = createMapboxMarkers();
+    state.markers = createMapboxMarkers(state.buildings);
     elements.fallbackMap.hidden = true;
     setStatus("Mapbox map active. Tap a marker to view building history.");
+    state.map.on("load", loadBuildingsForViewport);
+    state.map.on("moveend", scheduleViewportLoad);
   } catch (error) {
     attachFallbackMap();
     setStatus("Mapbox could not load. Check the access token and allowed URLs.");
   }
 }
 
-function createMapboxMarkers() {
-  return buildings.map((building) => {
+function createMapboxMarkers(nextBuildings) {
+  state.markers.forEach((marker) => marker.remove());
+  return nextBuildings.map((building) => {
     const markerElement = document.createElement("button");
     markerElement.className = "live-map-marker";
     markerElement.type = "button";
@@ -166,6 +193,71 @@ function createMapboxMarkers() {
       .setLngLat([building.position.lng, building.position.lat])
       .addTo(state.map);
   });
+}
+
+function scheduleViewportLoad() {
+  window.clearTimeout(viewportLoadTimer);
+  viewportLoadTimer = window.setTimeout(loadBuildingsForViewport, 700);
+}
+
+async function loadBuildingsForViewport() {
+  if (!state.map) return;
+
+  const bounds = getCurrentBounds();
+  if (!bounds) return;
+
+  try {
+    setStatus("Loading public building records for this map area...");
+    const result = await fetchWikidataBuildingsForBounds(bounds);
+
+    if (result.skipped) {
+      setStatus("Zoom in to load UK building-history records for the visible area.");
+      return;
+    }
+
+    mergeBuildings(result.buildings);
+    state.markers = createMapboxMarkers(state.buildings);
+    setStatus(`Loaded ${state.buildings.length} building records for this area. Pan or zoom to load more UK records.`);
+  } catch (error) {
+    setStatus("Public building records could not be loaded for this area.");
+  }
+}
+
+function getCurrentBounds() {
+  const mapBounds = state.map.getBounds();
+  const west = clampLng(mapBounds.getWest());
+  const east = clampLng(mapBounds.getEast());
+  const south = clampLat(mapBounds.getSouth());
+  const north = clampLat(mapBounds.getNorth());
+
+  if (west >= east || south >= north) return null;
+
+  return {
+    west: Number(west.toFixed(6)),
+    east: Number(east.toFixed(6)),
+    south: Number(south.toFixed(6)),
+    north: Number(north.toFixed(6)),
+    width: Math.abs(east - west),
+    height: Math.abs(north - south),
+  };
+}
+
+function mergeBuildings(nextBuildings) {
+  const existingIds = new Set(state.buildings.map((building) => building.id));
+  nextBuildings.forEach((building) => {
+    if (!existingIds.has(building.id)) {
+      existingIds.add(building.id);
+      state.buildings.push(building);
+    }
+  });
+}
+
+function clampLng(value) {
+  return Math.max(-8.8, Math.min(1.9, value));
+}
+
+function clampLat(value) {
+  return Math.max(49.8, Math.min(60.9, value));
 }
 
 function locateUser() {
