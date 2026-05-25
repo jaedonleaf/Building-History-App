@@ -4,3 +4,4 @@ node_modules/
 dist/
 serve.log
 serve.err.log
+src/local-config.js

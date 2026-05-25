@@ -1,6 +1,8 @@
 import { buildings } from "./data/buildings.js";
 import { publicSources } from "./data/publicSources.js";
 
+let localMapboxToken = "";
+
 const state = {
   selectedBuilding: buildings[0],
   map: null,
@@ -26,7 +28,7 @@ const elements = {
 };
 
 function getMapboxToken() {
-  return localStorage.getItem("buildingHistory.mapboxToken") || "";
+  return localStorage.getItem("buildingHistory.mapboxToken") || localMapboxToken;
 }
 
 function getMapboxStyle() {
@@ -210,6 +212,16 @@ function initEvents() {
   elements.reportButton.addEventListener("click", showReportState);
 }
 
+async function loadLocalConfig() {
+  try {
+    const config = await import("./local-config.js");
+    localMapboxToken = config.MAPBOX_TOKEN || "";
+  } catch (error) {
+    localMapboxToken = "";
+  }
+}
+
+await loadLocalConfig();
 renderBuilding(state.selectedBuilding);
 initEvents();
 initMapboxMap();
