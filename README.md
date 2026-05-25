@@ -55,6 +55,12 @@ Some sources have APIs, some require user-driven search links, and some have lic
 
 ## UK-wide record loading
 
-The app queries Wikidata for buildings in the current visible map area. Zoom in and pan anywhere in the UK to load records with coordinates and structured fields such as approximate inception date, recorded use, heritage designation, architect, and significant events where those fields exist.
+The app queries Wikidata and OpenStreetMap for buildings in the current visible map area. Zoom in and pan anywhere in the UK to load records with coordinates and an approximate build date where one exists in the public source. Wikidata contributes inception dates and structured fields such as recorded use, heritage designation, architect, and significant events. OpenStreetMap contributes buildings with tags such as `start_date`, `building:year`, `year_built`, `construction_date`, and mapped use tags.
 
-This does not mean every physical building in the UK has a marker. It means every building record available through the connected public data source for the current viewport can be loaded. Wider coverage requires additional adapters for council planning portals, Historic England/NHLE, Historic Environment Scotland, Cadw, Northern Ireland records, Ordnance Survey datasets, and Land Registry sources where licensing permits.
+The app only displays live public records that include an approximate build date. This avoids showing buildings with empty or misleading date fields. Wider coverage requires additional adapters for EPC construction age bands, council planning portals, Historic England/NHLE, Historic Environment Scotland, Cadw, Northern Ireland records, Ordnance Survey datasets, and Land Registry sources where licensing permits.
+
+Build date source priority:
+
+1. Wikidata `inception` (`P571`) for structured public records.
+2. OpenStreetMap dated building tags: `start_date`, `building:year`, `year_built`, `construction_date`, and `built`.
+3. Future adapters should add EPC construction age bands and official heritage/council record dates where available.

@@ -12,6 +12,12 @@ export const publicSources = [
     url: "https://www.wikipedia.org/",
   },
   {
+    id: "openstreetmap",
+    name: "OpenStreetMap",
+    coverage: "Mapped buildings with public tags such as start_date, building:year, year_built, and use tags",
+    url: "https://www.openstreetmap.org/",
+  },
+  {
     id: "historic-england",
     name: "Historic England List Entry Search",
     coverage: "Listed buildings, scheduled monuments, protected sites",

@@ -1,4 +1,5 @@
 import { buildings } from "./data/buildings.js";
+import { fetchOpenStreetMapDatedBuildingsForBounds } from "./data/openStreetMap.js";
 import { publicSources } from "./data/publicSources.js";
 import { fetchWikidataBuildingsForBounds } from "./data/wikidata.js";
 
@@ -208,16 +209,29 @@ async function loadBuildingsForViewport() {
 
   try {
     setStatus("Loading public building records for this map area...");
-    const result = await fetchWikidataBuildingsForBounds(bounds);
+    const [wikidataResult, osmResult] = await Promise.allSettled([
+      fetchWikidataBuildingsForBounds(bounds),
+      fetchOpenStreetMapDatedBuildingsForBounds(bounds),
+    ]);
 
-    if (result.skipped) {
-      setStatus("Zoom in to load UK building-history records for the visible area.");
+    const results = [wikidataResult, osmResult]
+      .filter((result) => result.status === "fulfilled")
+      .map((result) => result.value);
+
+    if (results.length === 0) {
+      setStatus("Public building records could not be loaded for this area.");
       return;
     }
 
-    mergeBuildings(result.buildings);
+    if (results.every((result) => result.skipped)) {
+      setStatus("Zoom in to load dated UK building-history records for the visible area.");
+      return;
+    }
+
+    const datedBuildings = results.flatMap((result) => result.buildings).filter(hasApproximateBuildDate);
+    mergeBuildings(datedBuildings);
     state.markers = createMapboxMarkers(state.buildings);
-    setStatus(`Loaded ${state.buildings.length} building records for this area. Pan or zoom to load more UK records.`);
+    setStatus(`Loaded ${state.buildings.length} dated building records. Pan or zoom to load more UK records with approximate build dates.`);
   } catch (error) {
     setStatus("Public building records could not be loaded for this area.");
   }
@@ -250,6 +264,10 @@ function mergeBuildings(nextBuildings) {
       state.buildings.push(building);
     }
   });
+}
+
+function hasApproximateBuildDate(building) {
+  return building.built && building.built !== "Unknown";
 }
 
 function clampLng(value) {

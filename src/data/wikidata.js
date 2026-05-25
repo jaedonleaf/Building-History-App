@@ -55,8 +55,7 @@ WHERE {
   }
   ?item wdt:P17 wd:Q145 .
   ?item wdt:P31 ?instance .
-  FILTER EXISTS { ?item wdt:P1435|wdt:P571|wdt:P84|wdt:P366|wdt:P793 ?anyValue. }
-  OPTIONAL { ?item wdt:P571 ?inception. }
+  ?item wdt:P571 ?inception.
   OPTIONAL { ?item wdt:P366 ?use. }
   OPTIONAL { ?item wdt:P1435 ?heritage. }
   OPTIONAL { ?item wdt:P84 ?architect. }
