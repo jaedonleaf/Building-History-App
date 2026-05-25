@@ -5,6 +5,7 @@ const state = {
   selectedBuilding: buildings[0],
   map: null,
   markers: [],
+  userMarker: null,
 };
 
 const elements = {
@@ -24,12 +25,12 @@ const elements = {
   reportButton: document.querySelector("#reportButton"),
 };
 
-function getMapsApiKey() {
-  return localStorage.getItem("buildingHistory.googleMapsApiKey") || "";
+function getMapboxToken() {
+  return localStorage.getItem("buildingHistory.mapboxToken") || "";
 }
 
-function getMapsMapId() {
-  return localStorage.getItem("buildingHistory.googleMapsMapId") || "";
+function getMapboxStyle() {
+  return localStorage.getItem("buildingHistory.mapboxStyle") || "mapbox://styles/mapbox/streets-v12";
 }
 
 function setStatus(message) {
@@ -76,7 +77,7 @@ function selectById(id) {
   const building = buildings.find((item) => item.id === id);
   if (building) {
     renderBuilding(building);
-    focusGoogleMap(building);
+    focusMap(building);
   }
 }
 
@@ -90,7 +91,7 @@ function runSearch() {
 
   if (match) {
     renderBuilding(match);
-    focusGoogleMap(match);
+    focusMap(match);
     setStatus(`Showing ${match.name}.`);
   } else {
     setStatus("No local prototype record matched. Live data adapters will handle wider searches.");
@@ -104,79 +105,64 @@ function attachFallbackMap() {
   });
 }
 
-function focusGoogleMap(building) {
-  if (!state.map || !window.google) return;
-  state.map.panTo(building.position);
-  state.map.setZoom(18);
-}
-
-async function loadGoogleMaps(apiKey) {
-  const script = document.createElement("script");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async`;
-  script.async = true;
-  document.head.appendChild(script);
-
-  await new Promise((resolve, reject) => {
-    script.addEventListener("load", resolve, { once: true });
-    script.addEventListener("error", reject, { once: true });
+function focusMap(building) {
+  if (!state.map) return;
+  state.map.flyTo({
+    center: [building.position.lng, building.position.lat],
+    zoom: 18,
+    essential: true,
   });
 }
 
-async function initGoogleMap() {
-  const apiKey = getMapsApiKey();
-  if (!apiKey) {
+function initMapboxMap() {
+  const token = getMapboxToken();
+  if (!token || !window.mapboxgl) {
     attachFallbackMap();
     return;
   }
 
   try {
-    await loadGoogleMaps(apiKey);
-    const { Map } = await google.maps.importLibrary("maps");
-    const mapId = getMapsMapId();
+    mapboxgl.accessToken = token;
 
-    state.map = new Map(elements.map, {
-      center: state.selectedBuilding.position,
+    state.map = new mapboxgl.Map({
+      container: elements.map,
+      style: getMapboxStyle(),
+      center: [state.selectedBuilding.position.lng, state.selectedBuilding.position.lat],
       zoom: 17,
-      ...(mapId ? { mapId } : {}),
-      mapTypeControl: false,
-      fullscreenControl: false,
-      streetViewControl: true,
+      pitch: 35,
+      attributionControl: true,
     });
 
-    state.markers = await createGoogleMarkers();
+    state.map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+    state.map.addControl(
+      new mapboxgl.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: true,
+        showUserHeading: true,
+      }),
+      "top-right",
+    );
 
+    state.markers = createMapboxMarkers();
     elements.fallbackMap.hidden = true;
-    setStatus("Google Maps active. Tap a marker to view building history.");
+    setStatus("Mapbox map active. Tap a marker to view building history.");
   } catch (error) {
     attachFallbackMap();
-    setStatus("Google Maps could not load. Check the API key and billing setup.");
+    setStatus("Mapbox could not load. Check the access token and allowed URLs.");
   }
 }
 
-async function createGoogleMarkers() {
-  const mapId = getMapsMapId();
-
-  if (mapId) {
-    const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
-    return buildings.map((building) => {
-      const marker = new AdvancedMarkerElement({
-        map: state.map,
-        position: building.position,
-        title: building.name,
-      });
-      marker.addListener("click", () => renderBuilding(building));
-      return marker;
-    });
-  }
-
+function createMapboxMarkers() {
   return buildings.map((building) => {
-    const marker = new google.maps.Marker({
-      map: state.map,
-      position: building.position,
-      title: building.name,
-    });
-    marker.addListener("click", () => renderBuilding(building));
-    return marker;
+    const markerElement = document.createElement("button");
+    markerElement.className = "live-map-marker";
+    markerElement.type = "button";
+    markerElement.setAttribute("aria-label", `Open ${building.name}`);
+    markerElement.addEventListener("click", () => renderBuilding(building));
+
+    return new mapboxgl.Marker({ element: markerElement, anchor: "bottom" })
+      .setLngLat([building.position.lng, building.position.lat])
+      .addTo(state.map);
   });
 }
 
@@ -194,8 +180,15 @@ function locateUser() {
       };
 
       if (state.map) {
-        state.map.panTo(current);
-        state.map.setZoom(18);
+        state.map.flyTo({
+          center: [current.lng, current.lat],
+          zoom: 18,
+          essential: true,
+        });
+        if (state.userMarker) state.userMarker.remove();
+        state.userMarker = new mapboxgl.Marker({ color: "#286fa8" })
+          .setLngLat([current.lng, current.lat])
+          .addTo(state.map);
       }
       setStatus("Location found.");
     },
@@ -219,4 +212,4 @@ function initEvents() {
 
 renderBuilding(state.selectedBuilding);
 initEvents();
-initGoogleMap();
+initMapboxMap();

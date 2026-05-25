@@ -5,7 +5,7 @@ A map-centered prototype for exploring the history of nearby buildings.
 ## What is built
 
 - Mobile-first map interface.
-- Google Maps JavaScript API integration path.
+- Mapbox GL JS map integration path.
 - Local fallback map so the prototype runs without an API key.
 - Tappable building pins.
 - Building timeline panel.
@@ -20,23 +20,23 @@ Open `index.html` in a browser, or serve the folder:
 npx serve .
 ```
 
-## Enable Google Maps
+## Enable Mapbox
 
-Create a Google Maps Platform API key with the Maps JavaScript API enabled, then run this in the browser console for the local prototype:
+Create a Mapbox public access token, then run this in the browser console for the local prototype:
 
 ```js
-localStorage.setItem("buildingHistory.googleMapsApiKey", "YOUR_API_KEY");
+localStorage.setItem("buildingHistory.mapboxToken", "YOUR_MAPBOX_PUBLIC_TOKEN");
 location.reload();
 ```
 
-If you create a Google Cloud map ID, the app will use Advanced Markers:
+You can also set a custom Mapbox style:
 
 ```js
-localStorage.setItem("buildingHistory.googleMapsMapId", "YOUR_MAP_ID");
+localStorage.setItem("buildingHistory.mapboxStyle", "mapbox://styles/mapbox/streets-v12");
 location.reload();
 ```
 
-For production, move the key handling into environment configuration and restrict the key by HTTP referrer in Google Cloud Console.
+For production, move token handling into environment configuration and restrict the token by URL in Mapbox.
 
 ## Data direction
 

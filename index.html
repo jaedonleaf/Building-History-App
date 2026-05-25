@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f7f4ee">
     <title>Building History App</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
     <link rel="stylesheet" href="./src/styles.css">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
     <script type="module" src="./src/app.js"></script>
   </head>
   <body>
@@ -45,7 +47,7 @@
               <button id="searchButton" type="button">Search</button>
             </div>
           </div>
-          <div class="map-status" id="mapStatus">Prototype map active. Add a Google Maps API key to enable live Google Maps.</div>
+          <div class="map-status" id="mapStatus">Prototype map active. Add a Mapbox token to enable the live map.</div>
         </section>
 
         <aside class="detail-panel" aria-label="Building details">
