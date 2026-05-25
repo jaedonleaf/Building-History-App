@@ -2,11 +2,11 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
 ];
-const MAX_VIEWPORT_DEGREES = 0.08;
+const MAX_VIEWPORT_DEGREES = 0.045;
 
 const DATE_TAGS = ["start_date", "building:year", "year_built", "construction_date", "built"];
 
-export async function fetchOpenStreetMapDatedBuildingsForBounds(bounds) {
+export async function fetchOpenStreetMapBuildingsForBounds(bounds) {
   if (!bounds || bounds.width > MAX_VIEWPORT_DEGREES || bounds.height > MAX_VIEWPORT_DEGREES) {
     return { buildings: [], skipped: true };
   }
@@ -55,10 +55,10 @@ function buildQuery(bounds) {
 
   return `[out:json][timeout:25];
 (
-way["building"][~"^(${DATE_TAGS.join("|")})$"~"."](${box});
-relation["building"][~"^(${DATE_TAGS.join("|")})$"~"."](${box});
+way["building"](${box});
+relation["building"](${box});
 );
-out center tags 120;`;
+out center tags 250;`;
 }
 
 function mapElementToBuilding(element) {
@@ -67,7 +67,7 @@ function mapElementToBuilding(element) {
   const rawDate = DATE_TAGS.map((tag) => tags[tag]).find(Boolean);
   const built = formatBuildDate(rawDate);
 
-  if (!position || built === "Unknown") return null;
+  if (!position) return null;
 
   const name = tags.name || tags["addr:housename"] || buildAddress(tags) || "Mapped building";
   const osmUrl = `https://www.openstreetmap.org/${element.type}/${element.id}`;
@@ -91,7 +91,9 @@ function mapElementToBuilding(element) {
     timeline: [
       {
         period: built,
-        description: `Approximate construction/start date from OpenStreetMap tag ${getDateTagName(tags)}.`,
+        description: rawDate
+          ? `Approximate construction/start date from OpenStreetMap tag ${getDateTagName(tags)}.`
+          : "No public build-date tag was available for this mapped building yet.",
       },
       ...usageTimeline,
     ],
@@ -112,7 +114,7 @@ function getPosition(element) {
 
 function formatBuildDate(value = "") {
   const clean = value.trim();
-  if (!clean) return "Unknown";
+  if (!clean) return "Date not available";
 
   const yearMatch = clean.match(/\b(1[0-9]{3}|20[0-2][0-9])\b/);
   if (yearMatch) return `c. ${yearMatch[1]}`;
@@ -124,6 +126,7 @@ function formatBuildDate(value = "") {
 }
 
 function getDateConfidence(value = "") {
+  if (!value) return "Unknown";
   return /\b(1[0-9]{3}|20[0-2][0-9])\b/.test(value) ? "Medium" : "Low";
 }
 

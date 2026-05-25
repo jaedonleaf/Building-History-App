@@ -1,5 +1,5 @@
 import { buildings } from "./data/buildings.js";
-import { fetchOpenStreetMapDatedBuildingsForBounds } from "./data/openStreetMap.js";
+import { fetchOpenStreetMapBuildingsForBounds } from "./data/openStreetMap.js";
 import { publicSources } from "./data/publicSources.js";
 import { fetchWikidataBuildingsForBounds } from "./data/wikidata.js";
 
@@ -185,7 +185,9 @@ function createMapboxMarkers(nextBuildings) {
   state.markers.forEach((marker) => marker.remove());
   return nextBuildings.map((building) => {
     const markerElement = document.createElement("button");
-    markerElement.className = "live-map-marker";
+    markerElement.className = building.built === "Date not available"
+      ? "live-map-marker live-map-marker-undated"
+      : "live-map-marker";
     markerElement.type = "button";
     markerElement.setAttribute("aria-label", `Open ${building.name}`);
     markerElement.addEventListener("click", () => renderBuilding(building));
@@ -211,7 +213,7 @@ async function loadBuildingsForViewport() {
     setStatus("Loading public building records for this map area...");
     const [wikidataResult, osmResult] = await Promise.allSettled([
       fetchWikidataBuildingsForBounds(bounds),
-      fetchOpenStreetMapDatedBuildingsForBounds(bounds),
+      fetchOpenStreetMapBuildingsForBounds(bounds),
     ]);
 
     const results = [wikidataResult, osmResult]
@@ -224,14 +226,14 @@ async function loadBuildingsForViewport() {
     }
 
     if (results.every((result) => result.skipped)) {
-      setStatus("Zoom in to load dated UK building-history records for the visible area.");
+      setStatus("Zoom in to load UK building records for the visible area.");
       return;
     }
 
-    const datedBuildings = results.flatMap((result) => result.buildings).filter(hasApproximateBuildDate);
-    mergeBuildings(datedBuildings);
+    const loadedBuildings = results.flatMap((result) => result.buildings);
+    mergeBuildings(loadedBuildings);
     state.markers = createMapboxMarkers(state.buildings);
-    setStatus(`Loaded ${state.buildings.length} dated building records. Pan or zoom to load more UK records with approximate build dates.`);
+    setStatus(`Loaded ${state.buildings.length} building records. Dates and usage are shown where public sources provide them.`);
   } catch (error) {
     setStatus("Public building records could not be loaded for this area.");
   }
@@ -264,10 +266,6 @@ function mergeBuildings(nextBuildings) {
       state.buildings.push(building);
     }
   });
-}
-
-function hasApproximateBuildDate(building) {
-  return building.built && building.built !== "Unknown";
 }
 
 function clampLng(value) {

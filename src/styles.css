@@ -229,6 +229,10 @@ h3 {
   outline-offset: 4px;
 }
 
+.live-map-marker-undated {
+  background: var(--blue);
+}
+
 .pin-one {
   left: 42%;
   top: 42%;

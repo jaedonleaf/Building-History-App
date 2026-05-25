@@ -55,9 +55,9 @@ Some sources have APIs, some require user-driven search links, and some have lic
 
 ## UK-wide record loading
 
-The app queries Wikidata and OpenStreetMap for buildings in the current visible map area. Zoom in and pan anywhere in the UK to load records with coordinates and an approximate build date where one exists in the public source. Wikidata contributes inception dates and structured fields such as recorded use, heritage designation, architect, and significant events. OpenStreetMap contributes buildings with tags such as `start_date`, `building:year`, `year_built`, `construction_date`, and mapped use tags.
+The app queries Wikidata and OpenStreetMap for buildings in the current visible map area. Zoom in and pan anywhere in the UK to load records with coordinates and public tags. Wikidata contributes inception dates and structured fields such as recorded use, heritage designation, architect, and significant events. OpenStreetMap contributes all mapped buildings in the visible area, including name, address, current use, former use, lifecycle, and date tags where available.
 
-The app only displays live public records that include an approximate build date. This avoids showing buildings with empty or misleading date fields. Wider coverage requires additional adapters for EPC construction age bands, council planning portals, Historic England/NHLE, Historic Environment Scotland, Cadw, Northern Ireland records, Ordnance Survey datasets, and Land Registry sources where licensing permits.
+The app displays as many public building records as the connected sources provide for the visible area. It does not invent build dates: where no reliable public date is found, the building is labelled `Date not available` and shown with a distinct marker. Wider date coverage requires additional adapters for EPC construction age bands, council planning portals, Historic England/NHLE, Historic Environment Scotland, Cadw, Northern Ireland records, Ordnance Survey datasets, and Land Registry sources where licensing permits.
 
 Build date source priority:
 
