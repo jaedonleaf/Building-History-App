@@ -318,6 +318,33 @@ h3 {
   color: #ffffff;
 }
 
+.filter-bar {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.filter-chip {
+  flex: 0 0 auto;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 0 11px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter-chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
 .map-status {
   position: absolute;
   left: 18px;
@@ -510,6 +537,10 @@ h3 {
 
   .search-row {
     grid-template-columns: 1fr;
+  }
+
+  .filter-bar {
+    max-width: 100%;
   }
 
   .detail-panel {

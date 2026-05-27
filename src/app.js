@@ -11,6 +11,7 @@ let viewportLoadTimer = 0;
 const state = {
   selectedBuilding: normaliseBuildingHistory(buildings[0]),
   buildings: buildings.map(normaliseBuildingHistory),
+  activeFilter: "all",
   map: null,
   markers: [],
   userMarker: null,
@@ -33,6 +34,7 @@ const elements = {
   googleMapsLink: document.querySelector("#googleMapsLink"),
   searchInput: document.querySelector("#searchInput"),
   searchButton: document.querySelector("#searchButton"),
+  filterButtons: document.querySelectorAll("[data-filter]"),
   locateButton: document.querySelector("#locateButton"),
   reportButton: document.querySelector("#reportButton"),
 };
@@ -165,7 +167,7 @@ function runSearch() {
   const term = elements.searchInput.value.trim().toLowerCase();
   if (!term) return;
 
-  const match = state.buildings.find((building) => {
+  const match = getFilteredBuildings(state.buildings).find((building) => {
     return `${building.name} ${building.address}`.toLowerCase().includes(term);
   });
 
@@ -174,8 +176,18 @@ function runSearch() {
     focusMap(match);
     setStatus(`Showing ${match.name}.`);
   } else {
-    setStatus("No loaded record matched. Pan or zoom the map to load more UK public records.");
+    setStatus("No loaded record matched this search and filter. Pan or zoom to load more UK public records.");
   }
+}
+
+function setActiveFilter(filter) {
+  state.activeFilter = filter;
+  elements.filterButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.filter === filter);
+  });
+  state.markers = createMapboxMarkers(state.buildings);
+  const count = getFilteredBuildings(state.buildings).length;
+  setStatus(filter === "all" ? `Showing all ${count} loaded building records.` : `Showing ${count} loaded ${filter} records.`);
 }
 
 function attachFallbackMap() {
@@ -236,7 +248,7 @@ function initMapboxMap() {
 
 function createMapboxMarkers(nextBuildings) {
   state.markers.forEach((marker) => marker.remove());
-  return nextBuildings.map((building) => {
+  return getFilteredBuildings(nextBuildings).map((building) => {
     const markerElement = document.createElement("button");
     markerElement.className = building.buildDate.value === "Date not available"
       ? "live-map-marker live-map-marker-undated"
@@ -249,6 +261,31 @@ function createMapboxMarkers(nextBuildings) {
       .setLngLat([building.position.lng, building.position.lat])
       .addTo(state.map);
   });
+}
+
+function getFilteredBuildings(nextBuildings) {
+  if (state.activeFilter === "all") return nextBuildings;
+  return nextBuildings.filter((building) => getBuildingCategories(building).includes(state.activeFilter));
+}
+
+function getBuildingCategories(building) {
+  const text = [
+    building.buildingName,
+    building.address,
+    building.currentUse,
+    building.architecturalStyle,
+    ...building.pastUsesTimeline.map((item) => `${item.useType} ${item.description}`),
+  ].join(" ").toLowerCase();
+
+  const categories = [];
+  if (/\b(church|chapel|cathedral|minster|abbey|mosque|synagogue|temple)\b/.test(text)) categories.push("church");
+  if (/\b(pub|public house|bar|inn|tavern|hotel)\b/.test(text)) categories.push("pub");
+  if (/\b(school|college|academy|university|education)\b/.test(text)) categories.push("school");
+  if (/\b(castle|fort|palace|manor|keep)\b/.test(text)) categories.push("castle");
+  if (/\b(shop|retail|commercial|office|market|warehouse|bank)\b/.test(text)) categories.push("commercial");
+  if (/\b(house|residential|apartments|flats|dwelling|terrace)\b/.test(text)) categories.push("residential");
+
+  return categories;
 }
 
 function scheduleViewportLoad() {
@@ -375,6 +412,9 @@ function initEvents() {
   elements.searchButton.addEventListener("click", runSearch);
   elements.searchInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") runSearch();
+  });
+  elements.filterButtons.forEach((button) => {
+    button.addEventListener("click", () => setActiveFilter(button.dataset.filter));
   });
   elements.locateButton.addEventListener("click", locateUser);
   elements.reportButton.addEventListener("click", showReportState);

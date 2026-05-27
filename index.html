@@ -46,6 +46,15 @@
               <input id="searchInput" type="search" placeholder="Search nearby buildings">
               <button id="searchButton" type="button">Search</button>
             </div>
+            <div class="filter-bar" aria-label="Filter building types">
+              <button type="button" class="filter-chip is-active" data-filter="all">All</button>
+              <button type="button" class="filter-chip" data-filter="church">Churches</button>
+              <button type="button" class="filter-chip" data-filter="pub">Pubs</button>
+              <button type="button" class="filter-chip" data-filter="school">Schools</button>
+              <button type="button" class="filter-chip" data-filter="castle">Castles</button>
+              <button type="button" class="filter-chip" data-filter="commercial">Commercial</button>
+              <button type="button" class="filter-chip" data-filter="residential">Homes</button>
+            </div>
           </div>
           <div class="map-status" id="mapStatus">Prototype map active. Add a Mapbox token to enable the live map.</div>
         </section>
