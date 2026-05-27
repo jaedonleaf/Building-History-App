@@ -47,6 +47,7 @@ SELECT ?item ?itemLabel ?itemDescription
        (GROUP_CONCAT(DISTINCT ?architectLabel; separator=", ") AS ?architects)
        (GROUP_CONCAT(DISTINCT ?styleLabel; separator=", ") AS ?styles)
        (GROUP_CONCAT(DISTINCT ?eventTimeline; separator=";;") AS ?events)
+       (GROUP_CONCAT(DISTINCT ?associationTimeline; separator=";;") AS ?associations)
        (SAMPLE(?openingDate) AS ?openingDateSample)
        (SAMPLE(?article) AS ?articleSample)
 WHERE {
@@ -63,6 +64,8 @@ WHERE {
   OPTIONAL { ?item wdt:P84 ?architect. }
   OPTIONAL { ?item wdt:P149 ?style. }
   OPTIONAL { ?item p:P793 ?eventStatement. ?eventStatement ps:P793 ?event. OPTIONAL { ?eventStatement pq:P585 ?eventDate. } }
+  OPTIONAL { ?item p:P466 ?occupantStatement. ?occupantStatement ps:P466 ?occupant. OPTIONAL { ?occupantStatement pq:P580 ?occupantStart. } OPTIONAL { ?occupantStatement pq:P582 ?occupantEnd. } }
+  OPTIONAL { ?resident p:P551 ?residenceStatement. ?residenceStatement ps:P551 ?item. OPTIONAL { ?residenceStatement pq:P580 ?residentStart. } OPTIONAL { ?residenceStatement pq:P582 ?residentEnd. } }
   OPTIONAL { ?item wdt:P1619 ?openingDate. }
   OPTIONAL { ?article schema:about ?item; schema:isPartOf <https://en.wikipedia.org/>. }
   SERVICE wikibase:label {
@@ -75,8 +78,19 @@ WHERE {
     ?architect rdfs:label ?architectLabel.
     ?style rdfs:label ?styleLabel.
     ?event rdfs:label ?eventLabel.
+    ?occupant rdfs:label ?occupantLabel.
+    ?resident rdfs:label ?residentLabel.
   }
   BIND(IF(BOUND(?event), CONCAT(IF(BOUND(?eventDate), STR(YEAR(?eventDate)), ""), "|", ?eventLabel), "") AS ?eventTimeline)
+  BIND(
+    IF(BOUND(?occupant),
+      CONCAT(IF(BOUND(?occupantStart), STR(YEAR(?occupantStart)), ""), "|", IF(BOUND(?occupantEnd), STR(YEAR(?occupantEnd)), ""), "|Associated occupant: ", ?occupantLabel),
+      IF(BOUND(?resident),
+        CONCAT(IF(BOUND(?residentStart), STR(YEAR(?residentStart)), ""), "|", IF(BOUND(?residentEnd), STR(YEAR(?residentEnd)), ""), "|Home/residence of ", ?residentLabel),
+        ""
+      )
+    ) AS ?associationTimeline
+  )
 }
 GROUP BY ?item ?itemLabel ?itemDescription
 ORDER BY ?itemLabel
@@ -97,6 +111,7 @@ function mapBindingToBuilding(binding) {
   const architects = splitValues(binding.architects?.value);
   const styles = splitValues(binding.styles?.value);
   const events = parseTimelineValues(binding.events?.value, "Significant event");
+  const associations = parseTimelineValues(binding.associations?.value, "Historical association");
   const description = cleanValue(binding.itemDescription?.value);
   const articleUrl = binding.articleSample?.value || "";
   const openingDate = formatInception(binding.openingDateSample?.value);
@@ -123,7 +138,7 @@ function mapBindingToBuilding(binding) {
       ...(articleUrl ? [{ name: "Wikipedia article", url: articleUrl, coverage: "Narrative public reference where available" }] : []),
     ],
     pastUsesTimeline: buildPastUsesTimeline({ built, uses, instances, itemUrl }),
-    significantEvents: buildSignificantEvents({ built, openingDate, heritage, architects, events, description, itemUrl }),
+    significantEvents: buildSignificantEvents({ openingDate, heritage, events, associations, itemUrl }),
     timeline: buildTimeline({
       built,
       openingDate,
@@ -150,21 +165,11 @@ function buildPastUsesTimeline({ built, uses, instances, itemUrl }) {
   }];
 }
 
-function buildSignificantEvents({ built, openingDate, heritage, architects, events, description, itemUrl }) {
+function buildSignificantEvents({ openingDate, heritage, events, associations, itemUrl }) {
   const source = { name: "Wikidata", url: itemUrl, coverage: "Structured public data" };
   const significantEvents = [];
 
-  if (built !== "Unknown") {
-    significantEvents.push({
-      dateRange: built,
-      useType: "Construction",
-      description: "Inception/build date recorded in Wikidata.",
-      source,
-      confidence: "medium",
-    });
-  }
-
-  if (openingDate !== "Unknown" && openingDate !== built) {
+  if (openingDate !== "Unknown") {
     significantEvents.push({
       dateRange: openingDate,
       useType: "Opening",
@@ -182,25 +187,8 @@ function buildSignificantEvents({ built, openingDate, heritage, architects, even
     confidence: "medium",
   }));
 
-  architects.forEach((item) => significantEvents.push({
-    dateRange: "Design attribution",
-    useType: "Architect",
-    description: item,
-    source,
-    confidence: "medium",
-  }));
-
   significantEvents.push(...events.map((event) => ({ ...event, source })));
-
-  if (description) {
-    significantEvents.push({
-      dateRange: "Public description",
-      useType: "Description",
-      description,
-      source,
-      confidence: "low",
-    });
-  }
+  significantEvents.push(...associations.map((event) => ({ ...event, source })));
 
   return significantEvents;
 }

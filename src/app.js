@@ -2,6 +2,7 @@ import { buildings } from "./data/buildings.js";
 import { areLikelySameBuilding, hasLimitedHistory, mergeBuildingHistories, normaliseBuildingHistory } from "./data/buildingHistory.js";
 import { fetchOpenStreetMapBuildingsForBounds } from "./data/openStreetMap.js";
 import { fetchWikidataBuildingsForBounds } from "./data/wikidata.js";
+import { enrichBuildingWithWikipediaEvents } from "./data/wikipedia.js";
 
 let localMapboxToken = "";
 let viewportLoadTimer = 0;
@@ -117,6 +118,22 @@ function renderBuilding(building) {
       <span>No source URL available for this record.</span>
     </li>
   `;
+
+  enrichSelectedBuildingFromWikipedia(building);
+}
+
+async function enrichSelectedBuildingFromWikipedia(building) {
+  if (building.wikipediaEventsLoaded) return;
+
+  const enriched = await enrichBuildingWithWikipediaEvents(building);
+  if (enriched === building) return;
+
+  const index = state.buildings.findIndex((item) => item.id === building.id);
+  if (index >= 0) state.buildings[index] = enriched;
+
+  if (state.selectedBuilding.id === building.id) {
+    renderBuilding(enriched);
+  }
 }
 
 function selectById(id) {

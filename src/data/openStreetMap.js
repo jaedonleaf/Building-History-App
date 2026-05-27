@@ -197,25 +197,13 @@ function buildUsageTimeline(tags, built) {
 function buildSignificantEvents(tags, rawDate, built, osmUrl) {
   const events = [];
 
-  if (rawDate) {
-    events.push({
-      dateRange: built,
-      useType: "Construction",
-      description: `Construction/start date recorded as ${rawDate}.`,
-      source: { ...OSM_SOURCE, url: osmUrl },
-      confidence: getDateConfidence(rawDate),
-    });
-  }
-
-  if (tags.heritage || tags.historic) {
-    events.push({
-      dateRange: "Heritage record",
-      useType: "Heritage",
-      description: [tags.historic && `historic=${tags.historic}`, tags.heritage && `heritage=${tags.heritage}`].filter(Boolean).join(", "),
-      source: { ...OSM_SOURCE, url: osmUrl },
-      confidence: "medium",
-    });
-  }
+  getLifecycleUse(tags).forEach((description) => events.push({
+    dateRange: "Lifecycle event",
+    useType: "Site change",
+    description,
+    source: { ...OSM_SOURCE, url: osmUrl },
+    confidence: "low",
+  }));
 
   return events;
 }
