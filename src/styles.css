@@ -372,6 +372,21 @@ h3 {
   font-size: 0.78rem;
 }
 
+.fact-grid strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.limited-data {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff8df;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
 .timeline {
   list-style: none;
   margin: 0 0 26px;
@@ -405,6 +420,13 @@ h3 {
   margin-bottom: 0;
   color: var(--muted);
   line-height: 1.45;
+}
+
+.timeline small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.76rem;
 }
 
 .source-list {

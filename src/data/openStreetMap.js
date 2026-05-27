@@ -5,6 +5,11 @@ const OVERPASS_ENDPOINTS = [
 const MAX_VIEWPORT_DEGREES = 0.045;
 
 const DATE_TAGS = ["start_date", "building:year", "year_built", "construction_date", "built"];
+const OSM_SOURCE = {
+  name: "OpenStreetMap",
+  url: "https://www.openstreetmap.org/",
+  coverage: "Mapped building geometry, names, addresses, dates, and usage tags",
+};
 
 export async function fetchOpenStreetMapBuildingsForBounds(bounds) {
   if (!bounds || bounds.width > MAX_VIEWPORT_DEGREES || bounds.height > MAX_VIEWPORT_DEGREES) {
@@ -69,16 +74,27 @@ function mapElementToBuilding(element) {
 
   if (!position) return null;
 
-  const name = tags.name || tags["addr:housename"] || buildAddress(tags) || "Mapped building";
+  const address = buildAddress(tags);
+  const name = tags.official_name || tags.name || tags["addr:housename"] || address || "Mapped building";
   const osmUrl = `https://www.openstreetmap.org/${element.type}/${element.id}`;
   const usageTimeline = buildUsageTimeline(tags, built);
 
   return {
     id: `osm-${element.type}-${element.id}`,
+    officialName: tags.official_name,
+    commonName: tags.name,
+    mapFeatureName: name,
     name,
-    address: buildAddress(tags) || "OpenStreetMap building record",
+    address: address || name,
+    buildDate: {
+      value: built,
+      confidence: getDateConfidence(rawDate),
+      source: { ...OSM_SOURCE, url: osmUrl },
+    },
     built,
     confidence: getDateConfidence(rawDate),
+    architecturalStyle: tags.architectural_style || tags["building:architecture"] || "",
+    currentUse: getCurrentUse(tags).join(", "),
     position,
     sources: ["openstreetmap"],
     sourceLinks: [
@@ -88,15 +104,8 @@ function mapElementToBuilding(element) {
         coverage: "Community mapped building tags including construction/start date where available",
       },
     ],
-    timeline: [
-      {
-        period: built,
-        description: rawDate
-          ? `Approximate construction/start date from OpenStreetMap tag ${getDateTagName(tags)}.`
-          : "No public build-date tag was available for this mapped building yet.",
-      },
-      ...usageTimeline,
-    ],
+    pastUsesTimeline: usageTimeline,
+    significantEvents: buildSignificantEvents(tags, rawDate, built, osmUrl),
   };
 }
 
@@ -143,30 +152,72 @@ function buildUsageTimeline(tags, built) {
   if (formerUse.length) {
     timeline.push({
       period: "Former use",
+      dateRange: "Former use",
+      useType: "Former use",
       description: formerUse.join(", "),
+      source: OSM_SOURCE,
+      confidence: "low",
     });
   }
 
   if (lifecycleUse.length) {
     timeline.push({
       period: "Lifecycle status",
+      dateRange: "Lifecycle status",
+      useType: "Lifecycle status",
       description: lifecycleUse.join(", "),
+      source: OSM_SOURCE,
+      confidence: "low",
     });
   }
 
   if (currentUse.length) {
     timeline.push({
       period: built,
+      dateRange: built === "Date not available" ? "Current mapped use" : `${built}-present`,
+      useType: "Current mapped use",
       description: `Recorded or current mapped use: ${currentUse.join(", ")}`,
+      source: OSM_SOURCE,
+      confidence: "medium",
     });
   } else {
     timeline.push({
       period: "Recorded use",
+      dateRange: "Recorded use",
+      useType: "Recorded use",
       description: "No additional use tag was available.",
+      source: OSM_SOURCE,
+      confidence: "low",
     });
   }
 
   return timeline;
+}
+
+function buildSignificantEvents(tags, rawDate, built, osmUrl) {
+  const events = [];
+
+  if (rawDate) {
+    events.push({
+      dateRange: built,
+      useType: "Construction",
+      description: `Construction/start date recorded as ${rawDate}.`,
+      source: { ...OSM_SOURCE, url: osmUrl },
+      confidence: getDateConfidence(rawDate),
+    });
+  }
+
+  if (tags.heritage || tags.historic) {
+    events.push({
+      dateRange: "Heritage record",
+      useType: "Heritage",
+      description: [tags.historic && `historic=${tags.historic}`, tags.heritage && `heritage=${tags.heritage}`].filter(Boolean).join(", "),
+      source: { ...OSM_SOURCE, url: osmUrl },
+      confidence: "medium",
+    });
+  }
+
+  return events;
 }
 
 function getCurrentUse(tags) {

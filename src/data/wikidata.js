@@ -45,6 +45,7 @@ SELECT ?item ?itemLabel ?itemDescription
        (GROUP_CONCAT(DISTINCT ?useLabel; separator=", ") AS ?uses)
        (GROUP_CONCAT(DISTINCT ?heritageLabel; separator=", ") AS ?heritage)
        (GROUP_CONCAT(DISTINCT ?architectLabel; separator=", ") AS ?architects)
+       (GROUP_CONCAT(DISTINCT ?styleLabel; separator=", ") AS ?styles)
        (GROUP_CONCAT(DISTINCT ?eventTimeline; separator=";;") AS ?events)
        (SAMPLE(?openingDate) AS ?openingDateSample)
        (SAMPLE(?article) AS ?articleSample)
@@ -60,6 +61,7 @@ WHERE {
   OPTIONAL { ?item wdt:P366 ?use. }
   OPTIONAL { ?item wdt:P1435 ?heritage. }
   OPTIONAL { ?item wdt:P84 ?architect. }
+  OPTIONAL { ?item wdt:P149 ?style. }
   OPTIONAL { ?item p:P793 ?eventStatement. ?eventStatement ps:P793 ?event. OPTIONAL { ?eventStatement pq:P585 ?eventDate. } }
   OPTIONAL { ?item wdt:P1619 ?openingDate. }
   OPTIONAL { ?article schema:about ?item; schema:isPartOf <https://en.wikipedia.org/>. }
@@ -71,6 +73,7 @@ WHERE {
     ?use rdfs:label ?useLabel.
     ?heritage rdfs:label ?heritageLabel.
     ?architect rdfs:label ?architectLabel.
+    ?style rdfs:label ?styleLabel.
     ?event rdfs:label ?eventLabel.
   }
   BIND(IF(BOUND(?event), CONCAT(IF(BOUND(?eventDate), STR(YEAR(?eventDate)), ""), "|", ?eventLabel), "") AS ?eventTimeline)
@@ -92,6 +95,7 @@ function mapBindingToBuilding(binding) {
   const instances = splitValues(binding.instances?.value);
   const heritage = splitValues(binding.heritage?.value);
   const architects = splitValues(binding.architects?.value);
+  const styles = splitValues(binding.styles?.value);
   const events = parseTimelineValues(binding.events?.value, "Significant event");
   const description = cleanValue(binding.itemDescription?.value);
   const articleUrl = binding.articleSample?.value || "";
@@ -99,16 +103,27 @@ function mapBindingToBuilding(binding) {
 
   return {
     id: `wikidata-${itemUrl.split("/").pop()}`,
+    officialName: name,
+    commonName: name,
     name,
     address: description || "UK building record from Wikidata",
+    buildDate: {
+      value: built,
+      confidence: built === "Unknown" ? "low" : "medium",
+      source: { name: "Wikidata", url: itemUrl, coverage: "Structured public data" },
+    },
     built,
     confidence: built === "Unknown" ? "Low" : "Medium",
+    architecturalStyle: styles[0] || "",
+    currentUse: [...uses, ...instances][0] || "",
     position,
     sources: ["wikidata", ...(articleUrl ? ["wikipedia"] : [])],
     sourceLinks: [
       { name: "Wikidata record", url: itemUrl, coverage: "Structured public data and source references" },
       ...(articleUrl ? [{ name: "Wikipedia article", url: articleUrl, coverage: "Narrative public reference where available" }] : []),
     ],
+    pastUsesTimeline: buildPastUsesTimeline({ built, uses, instances, itemUrl }),
+    significantEvents: buildSignificantEvents({ built, openingDate, heritage, architects, events, description, itemUrl }),
     timeline: buildTimeline({
       built,
       openingDate,
@@ -120,6 +135,74 @@ function mapBindingToBuilding(binding) {
       description,
     }),
   };
+}
+
+function buildPastUsesTimeline({ built, uses, instances, itemUrl }) {
+  const values = [...uses, ...instances].filter(Boolean);
+  if (!values.length) return [];
+
+  return [{
+    dateRange: built === "Unknown" ? "Undated recorded use" : `${built}-present`,
+    useType: "Recorded use",
+    description: values.slice(0, 5).join(", "),
+    source: { name: "Wikidata", url: itemUrl, coverage: "Structured use/type statements" },
+    confidence: "medium",
+  }];
+}
+
+function buildSignificantEvents({ built, openingDate, heritage, architects, events, description, itemUrl }) {
+  const source = { name: "Wikidata", url: itemUrl, coverage: "Structured public data" };
+  const significantEvents = [];
+
+  if (built !== "Unknown") {
+    significantEvents.push({
+      dateRange: built,
+      useType: "Construction",
+      description: "Inception/build date recorded in Wikidata.",
+      source,
+      confidence: "medium",
+    });
+  }
+
+  if (openingDate !== "Unknown" && openingDate !== built) {
+    significantEvents.push({
+      dateRange: openingDate,
+      useType: "Opening",
+      description: "Opening date recorded in Wikidata.",
+      source,
+      confidence: "medium",
+    });
+  }
+
+  heritage.forEach((item) => significantEvents.push({
+    dateRange: "Heritage listing",
+    useType: "Heritage",
+    description: item,
+    source,
+    confidence: "medium",
+  }));
+
+  architects.forEach((item) => significantEvents.push({
+    dateRange: "Design attribution",
+    useType: "Architect",
+    description: item,
+    source,
+    confidence: "medium",
+  }));
+
+  significantEvents.push(...events.map((event) => ({ ...event, source })));
+
+  if (description) {
+    significantEvents.push({
+      dateRange: "Public description",
+      useType: "Description",
+      description,
+      source,
+      confidence: "low",
+    });
+  }
+
+  return significantEvents;
 }
 
 function parseWktPoint(value = "") {

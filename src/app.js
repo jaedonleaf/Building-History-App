@@ -1,14 +1,14 @@
 import { buildings } from "./data/buildings.js";
+import { areLikelySameBuilding, hasLimitedHistory, mergeBuildingHistories, normaliseBuildingHistory } from "./data/buildingHistory.js";
 import { fetchOpenStreetMapBuildingsForBounds } from "./data/openStreetMap.js";
-import { publicSources } from "./data/publicSources.js";
 import { fetchWikidataBuildingsForBounds } from "./data/wikidata.js";
 
 let localMapboxToken = "";
 let viewportLoadTimer = 0;
 
 const state = {
-  selectedBuilding: buildings[0],
-  buildings: [...buildings],
+  selectedBuilding: normaliseBuildingHistory(buildings[0]),
+  buildings: buildings.map(normaliseBuildingHistory),
   map: null,
   markers: [],
   userMarker: null,
@@ -22,7 +22,11 @@ const elements = {
   buildingAddress: document.querySelector("#buildingAddress"),
   builtDate: document.querySelector("#builtDate"),
   confidence: document.querySelector("#confidence"),
+  architecturalStyle: document.querySelector("#architecturalStyle"),
+  currentUse: document.querySelector("#currentUse"),
   timeline: document.querySelector("#timeline"),
+  eventList: document.querySelector("#eventList"),
+  limitedDataNotice: document.querySelector("#limitedDataNotice"),
   sourceList: document.querySelector("#sourceList"),
   googleMapsLink: document.querySelector("#googleMapsLink"),
   searchInput: document.querySelector("#searchInput"),
@@ -60,44 +64,59 @@ function escapeHtml(value = "") {
 
 function renderBuilding(building) {
   state.selectedBuilding = building;
-  elements.buildingName.textContent = building.name;
+  elements.buildingName.textContent = building.buildingName;
   elements.buildingAddress.textContent = building.address;
-  elements.builtDate.textContent = building.built;
-  elements.confidence.textContent = building.confidence;
+  elements.builtDate.textContent = building.buildDate.value;
+  elements.confidence.textContent = building.buildDate.confidence;
+  elements.architecturalStyle.textContent = building.architecturalStyle || "Not found in public sources";
+  elements.currentUse.textContent = building.currentUse || "Not found in public sources";
   elements.googleMapsLink.href = buildGoogleMapsUrl(building);
+  elements.limitedDataNotice.hidden = !hasLimitedHistory(building);
 
-  elements.timeline.innerHTML = building.timeline
+  elements.timeline.innerHTML = building.pastUsesTimeline
     .map((item) => `
       <li>
-        <time>${escapeHtml(item.period)}</time>
-        <p>${escapeHtml(item.description)}</p>
+        <time>${escapeHtml(item.dateRange)}</time>
+        <p>${escapeHtml(item.useType)}: ${escapeHtml(item.description)}</p>
+        <small>${escapeHtml(item.source?.name || "Unknown source")} · ${escapeHtml(item.confidence)} confidence</small>
       </li>
     `)
-    .join("");
+    .join("") || `
+      <li>
+        <time>Past uses</time>
+        <p>No past-use timeline found in public sources yet.</p>
+      </li>
+    `;
 
-  const registrySources = building.sources
-    .map((sourceId) => {
-      const source = publicSources.find((item) => item.id === sourceId);
-      if (!source) return "";
-      return `
-        <li>
-          <a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.name)}</a>
-          <span>${escapeHtml(source.coverage)}</span>
-        </li>
-      `;
-    })
-    .join("");
+  elements.eventList.innerHTML = building.significantEvents.length
+    ? building.significantEvents.map((item) => `
+      <li>
+        <time>${escapeHtml(item.dateRange)}</time>
+        <p>${escapeHtml(item.description)}</p>
+        <small>${escapeHtml(item.source?.name || "Unknown source")} · ${escapeHtml(item.confidence)} confidence</small>
+      </li>
+    `).join("")
+    : `
+      <li>
+        <time>Historical events</time>
+        <p>No known historical events recorded for this building.</p>
+      </li>
+    `;
 
-  const directSources = (building.sourceLinks || [])
+  const renderedSources = (building.sources || [])
     .map((source) => `
       <li>
-        <a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.name)}</a>
+        <a href="${escapeHtml(source.url || "#")}" target="_blank" rel="noreferrer">${escapeHtml(source.name)}</a>
         <span>${escapeHtml(source.coverage)}</span>
       </li>
     `)
     .join("");
 
-  elements.sourceList.innerHTML = registrySources + directSources;
+  elements.sourceList.innerHTML = renderedSources || `
+    <li>
+      <span>No source URL available for this record.</span>
+    </li>
+  `;
 }
 
 function selectById(id) {
@@ -185,11 +204,11 @@ function createMapboxMarkers(nextBuildings) {
   state.markers.forEach((marker) => marker.remove());
   return nextBuildings.map((building) => {
     const markerElement = document.createElement("button");
-    markerElement.className = building.built === "Date not available"
+    markerElement.className = building.buildDate.value === "Date not available"
       ? "live-map-marker live-map-marker-undated"
       : "live-map-marker";
     markerElement.type = "button";
-    markerElement.setAttribute("aria-label", `Open ${building.name}`);
+    markerElement.setAttribute("aria-label", `Open ${building.buildingName}`);
     markerElement.addEventListener("click", () => renderBuilding(building));
 
     return new mapboxgl.Marker({ element: markerElement, anchor: "bottom" })
@@ -230,7 +249,7 @@ async function loadBuildingsForViewport() {
       return;
     }
 
-    const loadedBuildings = results.flatMap((result) => result.buildings);
+    const loadedBuildings = results.flatMap((result) => result.buildings).map(normaliseBuildingHistory);
     mergeBuildings(loadedBuildings);
     state.markers = createMapboxMarkers(state.buildings);
     setStatus(`Loaded ${state.buildings.length} building records. Dates and usage are shown where public sources provide them.`);
@@ -259,10 +278,17 @@ function getCurrentBounds() {
 }
 
 function mergeBuildings(nextBuildings) {
-  const existingIds = new Set(state.buildings.map((building) => building.id));
   nextBuildings.forEach((building) => {
-    if (!existingIds.has(building.id)) {
-      existingIds.add(building.id);
+    const exactIndex = state.buildings.findIndex((existing) => existing.sourceRecordIds.includes(building.id));
+    if (exactIndex >= 0) {
+      state.buildings[exactIndex] = mergeBuildingHistories(state.buildings[exactIndex], building);
+      return;
+    }
+
+    const likelyIndex = state.buildings.findIndex((existing) => areLikelySameBuilding(existing, building));
+    if (likelyIndex >= 0) {
+      state.buildings[likelyIndex] = mergeBuildingHistories(state.buildings[likelyIndex], building);
+    } else {
       state.buildings.push(building);
     }
   });

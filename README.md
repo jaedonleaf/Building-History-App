@@ -72,3 +72,14 @@ Recorded usage timeline sources:
 - OpenStreetMap also contributes former/lifecycle clues such as `old_name`, `former:*`, `was:*`, `disused:*`, `abandoned:*`, `demolished:*`, and `ruins:*`.
 
 Many public sources do not provide exact start/end dates for every use. The app labels those entries as undated or approximate rather than inventing dates.
+
+## Enrichment model
+
+Source adapters return source-specific records, then `src/data/buildingHistory.js` normalises them into one `BuildingHistory` object. The normaliser:
+
+- chooses a title using official/listed name, common name, address, then map label;
+- scores build dates by source priority and confidence;
+- merges likely matches using coordinates plus name/address overlap;
+- keeps conflicting build-date claims in `conflictingSourceData`;
+- keeps source attribution on timeline and event entries;
+- provides fallback text when public records are limited.
