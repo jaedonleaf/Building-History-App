@@ -66,6 +66,13 @@ function escapeHtml(value = "") {
   }[character]));
 }
 
+function formatTimelineDescription(item) {
+  if (!item.useType || item.description.toLowerCase().startsWith(item.useType.toLowerCase())) {
+    return item.description;
+  }
+  return `${item.useType}: ${item.description}`;
+}
+
 function renderBuilding(building) {
   state.selectedBuilding = building;
   elements.buildingName.textContent = building.buildingName;
@@ -81,7 +88,7 @@ function renderBuilding(building) {
     .map((item) => `
       <li>
         <time>${escapeHtml(item.dateRange)}</time>
-        <p>${escapeHtml(item.useType)}: ${escapeHtml(item.description)}</p>
+        <p>${escapeHtml(formatTimelineDescription(item))}</p>
         <small>${escapeHtml(item.source?.name || "Unknown source")} · ${escapeHtml(item.confidence)} confidence</small>
       </li>
     `)

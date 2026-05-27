@@ -176,7 +176,7 @@ function buildUsageTimeline(tags, built) {
       period: built,
       dateRange: built === "Date not available" ? "Current mapped use" : `${built}-present`,
       useType: "Current mapped use",
-      description: `Recorded or current mapped use: ${currentUse.join(", ")}`,
+      description: currentUse.join("; "),
       source: OSM_SOURCE,
       confidence: "medium",
     });
@@ -209,30 +209,31 @@ function buildSignificantEvents(tags, rawDate, built, osmUrl) {
 }
 
 function getCurrentUse(tags) {
-  return [
-    tags.building && `building=${tags.building}`,
-    tags["building:use"] && `building use=${tags["building:use"]}`,
-    tags.use && `use=${tags.use}`,
-    tags.amenity && `amenity=${tags.amenity}`,
-    tags.shop && `shop=${tags.shop}`,
-    tags.office && `office=${tags.office}`,
-    tags.tourism && `tourism=${tags.tourism}`,
-    tags.leisure && `leisure=${tags.leisure}`,
-    tags.historic && `historic=${tags.historic}`,
-    tags.heritage && `heritage=${tags.heritage}`,
+  const specificValues = [
+    tagLabel(tags.amenity),
+    tagLabel(tags.shop && `${tags.shop} shop`),
+    tagLabel(tags.office && `${tags.office} office`),
+    tagLabel(tags.tourism),
+    tagLabel(tags.leisure),
+    tagLabel(tags["building:use"]),
+    tags.historic && "Historic site",
+    tags.heritage && "Heritage record",
   ].filter(Boolean);
+
+  const values = specificValues.length ? specificValues : [buildingLabel(tags.building)].filter(Boolean);
+  return [...new Set(values)];
 }
 
 function getFormerUse(tags) {
   return Object.entries(tags)
     .filter(([key]) => key.startsWith("former:") || key.startsWith("was:") || key === "old_name")
-    .map(([key, value]) => `${key}=${value}`);
+    .map(([key, value]) => `${humaniseKey(key)}: ${tagLabel(value)}`);
 }
 
 function getLifecycleUse(tags) {
   return Object.entries(tags)
     .filter(([key]) => key.startsWith("disused:") || key.startsWith("abandoned:") || key.startsWith("demolished:") || key.startsWith("ruins:"))
-    .map(([key, value]) => `${key}=${value}`);
+    .map(([key, value]) => `${humaniseKey(key)}: ${tagLabel(value)}`);
 }
 
 function buildAddress(tags) {
@@ -244,4 +245,22 @@ function buildAddress(tags) {
   ].filter(Boolean);
 
   return parts.join(", ");
+}
+
+function buildingLabel(value) {
+  if (!value || value === "yes") return "Building";
+  return tagLabel(`${value} building`);
+}
+
+function tagLabel(value = "") {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function humaniseKey(value = "") {
+  return value
+    .replace(/:/g, " ")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
