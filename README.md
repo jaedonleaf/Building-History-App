@@ -71,6 +71,7 @@ Recorded usage timeline sources:
 - OpenStreetMap contributes current mapped use tags such as `building`, `building:use`, `amenity`, `shop`, `office`, `tourism`, `leisure`, `historic`, and `heritage`.
 - OpenStreetMap also contributes former/lifecycle clues such as `old_name`, `former:*`, `was:*`, `disused:*`, `abandoned:*`, `demolished:*`, and `ruins:*`.
 - Wikipedia intro extracts are loaded only when a selected building has a matched article, and only sentences with historically meaningful associations are added to Significant Events.
+- Mapbox reverse geocoding is used only when a selected OpenStreetMap footprint has no usable name/address. The app labels this as a nearby address, not an official building name.
 
 Many public sources do not provide exact start/end dates for every use. The app labels those entries as undated or approximate rather than inventing dates.
 

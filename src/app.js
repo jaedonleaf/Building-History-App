@@ -1,5 +1,6 @@
 import { buildings } from "./data/buildings.js";
 import { areLikelySameBuilding, hasLimitedHistory, mergeBuildingHistories, normaliseBuildingHistory } from "./data/buildingHistory.js";
+import { enrichUnnamedBuildingWithMapboxAddress } from "./data/mapboxGeocoding.js";
 import { fetchOpenStreetMapBuildingsForBounds } from "./data/openStreetMap.js";
 import { fetchWikidataBuildingsForBounds } from "./data/wikidata.js";
 import { enrichBuildingWithWikipediaEvents } from "./data/wikipedia.js";
@@ -120,6 +121,7 @@ function renderBuilding(building) {
   `;
 
   enrichSelectedBuildingFromWikipedia(building);
+  enrichSelectedBuildingAddress(building);
 }
 
 async function enrichSelectedBuildingFromWikipedia(building) {
@@ -133,6 +135,21 @@ async function enrichSelectedBuildingFromWikipedia(building) {
 
   if (state.selectedBuilding.id === building.id) {
     renderBuilding(enriched);
+  }
+}
+
+async function enrichSelectedBuildingAddress(building) {
+  if (building.mapboxAddressLoaded) return;
+
+  const enriched = await enrichUnnamedBuildingWithMapboxAddress(building, getMapboxToken());
+  if (enriched === building) return;
+
+  const index = state.buildings.findIndex((item) => item.id === building.id);
+  if (index >= 0) state.buildings[index] = enriched;
+
+  if (state.selectedBuilding.id === building.id) {
+    renderBuilding(enriched);
+    state.markers = createMapboxMarkers(state.buildings);
   }
 }
 
