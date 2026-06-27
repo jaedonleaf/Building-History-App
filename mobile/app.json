@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Histr",
+    "slug": "histr",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "histr",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#08294A"
+      }
+    },
+    "splash": {
+      "backgroundColor": "#08294A",
+      "resizeMode": "contain"
+    }
+  }
+}

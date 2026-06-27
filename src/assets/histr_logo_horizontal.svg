@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="220" viewBox="0 0 900 220">
+<text x="40" y="165" font-size="190" font-family="Arial, sans-serif" font-weight="800" fill="#08294a">histr</text>
+<g transform="translate(520,0)" fill="none" stroke-linecap="round" stroke-width="8">
+<path d="M100 10 C45 10 20 60 20 100 C20 155 100 210 100 210 C100 210 180 155 180 100 C180 60 155 10 100 10" stroke="#1f4e79"/>
+<path d="M100 25 C60 25 40 65 40 100 C40 145 100 190 100 190 C100 190 160 145 160 100 C160 65 140 25 100 25" stroke="#c9972b"/>
+<path d="M100 50 C75 50 65 75 65 100 C65 130 100 165 100 165 C100 165 135 130 135 100 C135 75 125 50 100 50" stroke="#1f4e79"/>
+</g>
+</svg>

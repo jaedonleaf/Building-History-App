@@ -5,6 +5,7 @@ const OVERPASS_ENDPOINTS = [
 const MAX_VIEWPORT_DEGREES = 0.045;
 
 const DATE_TAGS = ["start_date", "building:year", "year_built", "construction_date", "built"];
+const NHLE_TAGS = ["ref:GB:nhle", "ref:GB:NHLE", "heritage:ref", "nhle", "NHLE"];
 const OSM_SOURCE = {
   name: "OpenStreetMap",
   url: "https://www.openstreetmap.org/",
@@ -77,10 +78,43 @@ function mapElementToBuilding(element) {
   const address = buildAddress(tags);
   const name = tags.official_name || tags.name || tags["addr:housename"] || address || "Mapped building";
   const osmUrl = `https://www.openstreetmap.org/${element.type}/${element.id}`;
+  const wikidataId = getWikidataId(tags.wikidata);
+  const nhleId = getNhleId(tags);
+  const officialWebsite = getWebsiteUrl(tags);
   const usageTimeline = buildUsageTimeline(tags, built);
+  const sourceLinks = [
+    {
+      name: "OpenStreetMap feature",
+      url: osmUrl,
+      coverage: "Community mapped building tags including construction/start date where available",
+    },
+    ...(wikidataId ? [{
+      name: "Wikidata record",
+      url: `https://www.wikidata.org/wiki/${wikidataId}`,
+      coverage: "Linked structured public record from OpenStreetMap",
+    }] : []),
+    ...(nhleId ? [{
+      name: "Historic England list entry",
+      url: `https://historicengland.org.uk/listing/the-list/list-entry/${nhleId}`,
+      coverage: "Official National Heritage List for England reference from OpenStreetMap",
+    }] : []),
+    ...(officialWebsite ? [{
+      name: "Official venue website",
+      url: officialWebsite,
+      coverage: "Website linked from OpenStreetMap for current venue identity and public description",
+    }] : []),
+  ];
 
   return {
     id: `osm-${element.type}-${element.id}`,
+    sourceRecordIds: [
+      `osm-${element.type}-${element.id}`,
+      wikidataId && `wikidata-${wikidataId}`,
+      nhleId && `historic-england-${nhleId}`,
+    ].filter(Boolean),
+    wikidataId,
+    nhleId,
+    officialWebsite,
     officialName: tags.official_name,
     commonName: tags.name,
     mapFeatureName: name,
@@ -96,17 +130,34 @@ function mapElementToBuilding(element) {
     architecturalStyle: tags.architectural_style || tags["building:architecture"] || "",
     currentUse: getCurrentUse(tags).join(", "),
     position,
-    sources: ["openstreetmap"],
-    sourceLinks: [
-      {
-        name: "OpenStreetMap feature",
-        url: osmUrl,
-        coverage: "Community mapped building tags including construction/start date where available",
-      },
+    sources: [
+      "openstreetmap",
+      ...(wikidataId ? ["wikidata"] : []),
+      ...(nhleId ? ["historic-england"] : []),
+      ...(officialWebsite ? [{ name: "Official venue website", url: officialWebsite, coverage: "Website linked from OpenStreetMap" }] : []),
     ],
+    sourceLinks,
     pastUsesTimeline: usageTimeline,
     significantEvents: buildSignificantEvents(tags, rawDate, built, osmUrl),
   };
+}
+
+function getWikidataId(value = "") {
+  const match = String(value).trim().match(/^Q\d+$/i);
+  return match ? match[0].toUpperCase() : "";
+}
+
+function getNhleId(tags = {}) {
+  return NHLE_TAGS.map((tag) => tags[tag]).map((value) => {
+    const match = String(value || "").match(/\b\d{7}\b/);
+    return match ? match[0] : "";
+  }).find(Boolean) || "";
+}
+
+function getWebsiteUrl(tags = {}) {
+  const value = tags.website || tags["contact:website"] || tags.url || "";
+  if (!/^https?:\/\//i.test(value)) return "";
+  return value;
 }
 
 function getPosition(element) {

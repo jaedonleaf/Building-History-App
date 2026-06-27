@@ -19,9 +19,15 @@ export const publicSources = [
   },
   {
     id: "historic-england",
-    name: "Historic England List Entry Search",
-    coverage: "Listed buildings, scheduled monuments, protected sites",
-    url: "https://historicengland.org.uk/listing/the-list/",
+    name: "Historic England",
+    coverage: "Official National Heritage List for England listed-building records via the public ArcGIS open data service",
+    url: "https://services-eu1.arcgis.com/ZOdPfBS3aqqDYPUQ/arcgis/rest/services/National_Heritage_List_for_England_NHLE_v02_VIEW/FeatureServer",
+  },
+  {
+    id: "historic-royal-palaces",
+    name: "Historic Royal Palaces",
+    coverage: "Official histories for HRP-managed royal palaces, castles, residences, and gardens",
+    url: "https://www.hrp.org.uk/",
   },
   {
     id: "local-planning",

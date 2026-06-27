@@ -1,0 +1,26 @@
+{
+  "name": "histr-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "expo": "^56.0.0",
+    "expo-splash-screen": "~56.0.10",
+    "react": "19.2.3",
+    "react-native": "^0.85.3",
+    "react-native-reanimated": "^4.3.1",
+    "react-native-svg": "^15.15.4",
+    "react-native-worklets": "^0.8.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@types/react": "~19.2.0",
+    "typescript": "~6.0.3"
+  }
+}

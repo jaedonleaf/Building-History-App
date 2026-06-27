@@ -20,8 +20,8 @@ export async function enrichUnnamedBuildingWithMapboxAddress(building, accessTok
 
     return {
       ...building,
-      buildingName: `Building near ${address}`,
-      name: `Building near ${address}`,
+      buildingName: address,
+      name: address,
       address,
       mapboxAddressLoaded: true,
       matchConfidence: "low",

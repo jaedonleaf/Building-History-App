@@ -1,6 +1,5 @@
 const WIKIDATA_ENDPOINT = "https://query.wikidata.org/sparql";
 const MAX_VIEWPORT_DEGREES = 0.22;
-
 export async function fetchWikidataBuildingsForBounds(bounds) {
   if (!bounds || bounds.width > MAX_VIEWPORT_DEGREES || bounds.height > MAX_VIEWPORT_DEGREES) {
     return { buildings: [], skipped: true };
@@ -46,6 +45,7 @@ SELECT ?item ?itemLabel ?itemDescription
        (GROUP_CONCAT(DISTINCT ?heritageLabel; separator=", ") AS ?heritage)
        (GROUP_CONCAT(DISTINCT ?architectLabel; separator=", ") AS ?architects)
        (GROUP_CONCAT(DISTINCT ?styleLabel; separator=", ") AS ?styles)
+       (GROUP_CONCAT(DISTINCT ?nhle; separator=", ") AS ?nhleIds)
        (GROUP_CONCAT(DISTINCT ?eventTimeline; separator=";;") AS ?events)
        (GROUP_CONCAT(DISTINCT ?associationTimeline; separator=";;") AS ?associations)
        (SAMPLE(?openingDate) AS ?openingDateSample)
@@ -57,10 +57,18 @@ WHERE {
     bd:serviceParam wikibase:cornerNorthEast "Point(${bounds.east} ${bounds.north})"^^geo:wktLiteral .
   }
   ?item wdt:P17 wd:Q145 .
-  ?item wdt:P31 ?instance .
-  ?item wdt:P571 ?inception.
+  ?item wdt:P31 ?instance.
+  {
+    ?item wdt:P31/wdt:P279* wd:Q41176.
+  } UNION {
+    ?item wdt:P1435 ?heritage.
+  } UNION {
+    ?item wdt:P1216 ?nhle.
+  }
+  OPTIONAL { ?item wdt:P571 ?inception. }
   OPTIONAL { ?item wdt:P366 ?use. }
   OPTIONAL { ?item wdt:P1435 ?heritage. }
+  OPTIONAL { ?item wdt:P1216 ?nhle. }
   OPTIONAL { ?item wdt:P84 ?architect. }
   OPTIONAL { ?item wdt:P149 ?style. }
   OPTIONAL { ?item p:P793 ?eventStatement. ?eventStatement ps:P793 ?event. OPTIONAL { ?eventStatement pq:P585 ?eventDate. } }
@@ -110,6 +118,7 @@ function mapBindingToBuilding(binding) {
   const heritage = splitValues(binding.heritage?.value);
   const architects = splitValues(binding.architects?.value);
   const styles = splitValues(binding.styles?.value);
+  const nhleIds = splitValues(binding.nhleIds?.value);
   const events = parseTimelineValues(binding.events?.value, "Significant event");
   const associations = parseTimelineValues(binding.associations?.value, "Historical association");
   const description = cleanValue(binding.itemDescription?.value);
@@ -118,6 +127,11 @@ function mapBindingToBuilding(binding) {
 
   return {
     id: `wikidata-${itemUrl.split("/").pop()}`,
+    sourceRecordIds: [
+      `wikidata-${itemUrl.split("/").pop()}`,
+      ...nhleIds.map((id) => `historic-england-${id}`),
+    ],
+    nhleId: nhleIds[0] || "",
     officialName: name,
     commonName: name,
     name,
@@ -132,10 +146,15 @@ function mapBindingToBuilding(binding) {
     architecturalStyle: styles[0] || "",
     currentUse: [...uses, ...instances][0] || "",
     position,
-    sources: ["wikidata", ...(articleUrl ? ["wikipedia"] : [])],
+    sources: ["wikidata", ...(articleUrl ? ["wikipedia"] : []), ...(nhleIds.length ? ["historic-england"] : [])],
     sourceLinks: [
       { name: "Wikidata record", url: itemUrl, coverage: "Structured public data and source references" },
       ...(articleUrl ? [{ name: "Wikipedia article", url: articleUrl, coverage: "Narrative public reference where available" }] : []),
+      ...nhleIds.map((id) => ({
+        name: "Historic England list entry",
+        url: `https://historicengland.org.uk/listing/the-list/list-entry/${id}`,
+        coverage: "Official National Heritage List for England record linked from Wikidata",
+      })),
     ],
     pastUsesTimeline: buildPastUsesTimeline({ built, uses, instances, itemUrl }),
     significantEvents: buildSignificantEvents({ openingDate, heritage, events, associations, itemUrl }),

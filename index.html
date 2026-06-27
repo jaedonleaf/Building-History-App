@@ -11,14 +11,20 @@
     <script type="module" src="./src/app.js"></script>
   </head>
   <body>
+    <div class="web-splash" id="webSplash" aria-label="Loading Histr">
+      <svg class="web-splash-pin" viewBox="80 20 280 310" role="img" aria-label="Histr map pin">
+        <path d="M220 40 C150 40 120 100 120 150 C120 220 220 300 220 300 C220 300 320 220 320 150 C320 100 290 40 220 40"></path>
+        <path d="M220 60 C165 60 140 108 140 150 C140 205 220 280 220 280 C220 280 300 205 300 150 C300 108 275 60 220 60"></path>
+        <path d="M220 90 C185 90 170 122 170 150 C170 185 220 245 220 245 C220 245 270 185 270 150 C270 122 255 90 220 90"></path>
+      </svg>
+      <div class="web-splash-wordmark" aria-hidden="true">histr</div>
+    </div>
+
     <div class="app-shell">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">Building History</p>
-          <h1>Map</h1>
-        </div>
+        <img class="topbar-logo" src="./src/assets/histr_logo_horizontal.svg" alt="Histr">
         <button class="icon-button" id="locateButton" type="button" aria-label="Use my location" title="Use my location">
-          <span aria-hidden="true">GPS</span>
+          <span aria-hidden="true"></span>
         </button>
       </header>
 
@@ -43,8 +49,13 @@
           <div class="search-panel" role="search">
             <label for="searchInput">Search address or building</label>
             <div class="search-row">
-              <input id="searchInput" type="search" placeholder="Search nearby buildings">
+              <input id="searchInput" type="search" placeholder="Search nearby buildings" autocomplete="off" aria-autocomplete="list" aria-controls="searchSuggestions" aria-expanded="false">
               <button id="searchButton" type="button">Search</button>
+            </div>
+            <ul class="search-suggestions" id="searchSuggestions" role="listbox" hidden></ul>
+            <div class="filter-bar" aria-label="Discovery mode">
+              <button type="button" class="filter-chip is-active" data-discovery-mode="history">Explore History</button>
+              <button type="button" class="filter-chip" data-discovery-mode="everything">Explore Everything</button>
             </div>
             <div class="filter-bar" aria-label="Filter building types">
               <button type="button" class="filter-chip is-active" data-filter="all">All</button>
@@ -63,21 +74,22 @@
           <div class="detail-header">
             <p class="eyebrow">Selected building</p>
             <h2 id="buildingName">Victoria Arcade</h2>
+            <p class="building-type" id="buildingType">Commercial arcade</p>
             <p id="buildingAddress">Market Street, Manchester</p>
           </div>
 
           <div class="fact-grid">
             <div>
-              <span>Built</span>
+              <span>Build date</span>
               <strong id="builtDate">c. 1898</strong>
             </div>
             <div>
-              <span>Confidence</span>
-              <strong id="confidence">Medium</strong>
+              <span>Name/type</span>
+              <strong id="nameType">Victoria Arcade / Commercial arcade</strong>
             </div>
             <div>
-              <span>Style</span>
-              <strong id="architecturalStyle">Not found in public sources</strong>
+              <span>Build date confidence</span>
+              <strong id="confidence">Medium</strong>
             </div>
             <div>
               <span>Current use</span>
@@ -87,13 +99,22 @@
 
           <p class="limited-data" id="limitedDataNotice" hidden>Limited public historical data found for this building.</p>
 
+          <section class="navigation-panel" id="navigationPanel" hidden>
+            <div class="navigation-header">
+              <h3>Directions</h3>
+              <button id="clearRouteButton" type="button">Clear</button>
+            </div>
+            <p id="routeSummary">Route not started.</p>
+            <ol class="route-steps" id="routeSteps"></ol>
+          </section>
+
           <section>
-            <h3>Past Uses</h3>
+            <h3>Build Date and Past Uses</h3>
             <ol class="timeline" id="timeline"></ol>
           </section>
 
           <section>
-            <h3>Significant Events</h3>
+            <h3>Did You Know?</h3>
             <ol class="timeline" id="eventList"></ol>
           </section>
 
@@ -104,6 +125,7 @@
 
           <div class="actions">
             <a id="googleMapsLink" href="https://www.google.com/maps" target="_blank" rel="noreferrer">Open in Google Maps</a>
+            <button id="directionsButton" type="button">Start in-app navigation</button>
             <button id="reportButton" type="button">Flag missing record</button>
           </div>
         </aside>
